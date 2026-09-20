@@ -1,0 +1,44 @@
+name: Sync Loyalsoldier cn.txt to Gitee
+on:
+  schedule:
+    - cron: '0 3 1-7 * 3'    # UTC 03:00 = 北京时间 11:00，每月第一周周三（比 ikuai-bypass 早 1 小时）
+  workflow_dispatch:         # 允许手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download, validate, upload to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_ACCESS_TOKEN }}
+        run: |
+          python3 - <<'EOF'
+          import base64, json, os, urllib.request, urllib.error, ipaddress, datetime
+
+          TOKEN = os.environ['GITEE_TOKEN']
+          API = 'https://gitee.com/api/v5/repos/imno/kexue/contents/chinaIP-cn.txt'
+          SRC = 'https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/cn.txt'
+
+          data = urllib.request.urlopen(urllib.request.Request(SRC, headers={'User-Agent':'sync'}), timeout=60).read()
+          lines = [l.strip() for l in data.decode().splitlines() if l.strip() and not l.startswith('#')]
+          assert len(lines) >= 4000, f'仅 {len(lines)} 行，疑似截断/错误页'
+          for l in lines:
+              ipaddress.IPv4Network(l, strict=False)   # 逐行校验，脏数据直接抛异常中止
+          print(f'校验通过: {len(lines)} 条 CIDR')
+
+          sha = None
+          try:
+              sha = json.load(urllib.request.urlopen(f'{API}?access_token={TOKEN}', timeout=30)).get('sha')
+          except urllib.error.HTTPError as e:
+              if e.code != 404: raise
+
+          body = {'access_token': TOKEN,
+                  'message': f'chore: sync cn.txt ({len(lines)} 条, {datetime.date.today()})',
+                  'content': base64.b64encode(data).decode()}
+          if sha: body['sha'] = sha
+          req = urllib.request.Request(API, data=json.dumps(body).encode(),
+                                       headers={'Content-Type':'application/json'},
+                                       method='PUT' if sha else 'POST')
+          urllib.request.urlopen(req, timeout=120).read()
+          print(f'上传成功: {len(lines)} 条')
+          EOF
