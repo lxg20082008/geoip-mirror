@@ -23,8 +23,8 @@ jobs:
           lines = [l.strip() for l in data.decode().splitlines() if l.strip() and not l.startswith('#')]
           assert len(lines) >= 4000, f'仅 {len(lines)} 行，疑似截断/错误页'
           for l in lines:
-              ipaddress.IPv4Network(l, strict=False)   # 逐行校验，脏数据直接抛异常中止
-          print(f'校验通过: {len(lines)} 条 CIDR')
+          # 自动判断是 IPv4 还是 IPv6，并调用对应的解析器
+          ipaddress.ip_network(l, strict=False)  # 使用通用工厂函数
 
           sha = None
           try:
