@@ -1,7 +1,7 @@
 name: Sync Loyalsoldier cn.txt to Gitee
 on:
   schedule:
-    - cron: '0 3 1-7 * 3'    # UTC 03:00 = 北京时间 11:00，每月第一周周三
+    - cron: '0 1 * * 4'    # UTC 01:00 = 北京时间 9:00，每周四
   workflow_dispatch:
 
 jobs:
